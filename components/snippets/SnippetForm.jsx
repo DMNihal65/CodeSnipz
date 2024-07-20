@@ -1,17 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
+import TagManager from '../tags/TagManager';
 
-export default function SnippetForm({ onSnippetCreated }) {
+export default function SnippetForm({ onSnippetCreated, existingTags = [] }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [tags, setTags] = useState(existingTags);
+
+  useEffect(() => {
+    fetchTags();
+  }, []);
+
+  const fetchTags = async () => {
+    try {
+      const response = await fetch('/api/tags');
+      if (response.ok) {
+        const data = await response.json();
+        setTags(data);
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,7 +42,7 @@ export default function SnippetForm({ onSnippetCreated }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ title, description, code, language }),
+        body: JSON.stringify({ title, description, code, language, tags: selectedTags }),
       });
 
       if (response.ok) {
@@ -32,6 +52,7 @@ export default function SnippetForm({ onSnippetCreated }) {
         setDescription('');
         setCode('');
         setLanguage('');
+        setSelectedTags([]);
         onSnippetCreated();
       } else {
         console.error('Failed to create snippet');
@@ -41,6 +62,11 @@ export default function SnippetForm({ onSnippetCreated }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleTagChange = (e) => {
+    const value = Array.from(e.target.selectedOptions, option => option.value);
+    setSelectedTags(value);
   };
 
   return (
@@ -81,6 +107,21 @@ export default function SnippetForm({ onSnippetCreated }) {
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
         />
+      </div>
+      <div>
+        <Label htmlFor="tags">Tags</Label>
+        <Select
+          id="tags"
+          multiple
+          value={selectedTags}
+          onChange={handleTagChange}
+        >
+          {tags.map((tag) => (
+            <option key={tag.id} value={tag.id}>
+              {tag.name}
+            </option>
+          ))}
+        </Select>
       </div>
       <Button type="submit" disabled={isLoading}>
         {isLoading ? 'Creating...' : 'Create Snippet'}

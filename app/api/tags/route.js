@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { snippets } from '@/lib/db/schema';
+import { tags, snippetTags, snippets } from '@/lib/db/schema';
 import { getAuth } from '@clerk/nextjs/server';
 import { eq } from 'drizzle-orm';
 
@@ -11,23 +11,20 @@ export async function POST(req) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { title, description, code, language } = await req.json();
+    const { name } = await req.json();
     
-    console.log('Attempting to insert snippet:', { userId, title, description, code, language });
+    console.log('Attempting to insert tag:', { userId, name });
 
-    const newSnippet = await db.insert(snippets).values({
+    const newTag = await db.insert(tags).values({
       userId,
-      title,
-      description,
-      code,
-      language,
+      name,
     }).returning();
 
-    console.log('New snippet created:', newSnippet[0]);
+    console.log('New tag created:', newTag[0]);
 
-    return NextResponse.json(newSnippet[0]);
+    return NextResponse.json(newTag[0]);
   } catch (error) {
-    console.error('Detailed error creating snippet:', error);
+    console.error('Error creating tag:', error);
     return new NextResponse(JSON.stringify({ error: error.message }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -42,11 +39,11 @@ export async function GET(req) {
         return new NextResponse("Unauthorized", { status: 401 });
       }
   
-      const userSnippets = await db.select().from(snippets).where(eq(snippets.userId, userId)).orderBy(snippets.createdAt, 'desc');
+      const userTags = await db.select().from(tags).where(eq(tags.userId, userId));
   
-      return NextResponse.json(userSnippets);
+      return NextResponse.json(userTags);
     } catch (error) {
-      console.error('Error fetching snippets:', error);
+      console.error('Error fetching tags:', error);
       return new NextResponse(JSON.stringify({ error: error.message }), { 
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -61,20 +58,18 @@ export async function PATCH(req) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { id, isFavorite } = await req.json();
+    const { snippetId, tagIds } = await req.json();
     
-    console.log('Attempting to update snippet:', { id, isFavorite });
+    console.log('Attempting to update snippet tags:', { snippetId, tagIds });
 
-    const updatedSnippet = await db.update(snippets)
-      .set({ isFavorite })
-      .where(eq(snippets.id, id))
-      .returning();
+    await db.delete(snippetTags).where(eq(snippetTags.snippetId, snippetId));
 
-    console.log('Snippet updated:', updatedSnippet[0]);
+    const newSnippetTags = tagIds.map(tagId => ({ snippetId, tagId }));
+    await db.insert(snippetTags).values(newSnippetTags);
 
-    return NextResponse.json(updatedSnippet[0]);
+    return new NextResponse("Tags updated successfully", { status: 200 });
   } catch (error) {
-    console.error('Error updating snippet:', error);
+    console.error('Error updating snippet tags:', error);
     return new NextResponse(JSON.stringify({ error: error.message }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }

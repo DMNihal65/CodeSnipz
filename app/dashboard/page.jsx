@@ -3,14 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Edit } from 'lucide-react';
 import SnippetCard from '@/components/snippets/SnippetCard';
 import SnippetFormDialog from '@/components/snippets/SnippetFormDialog';
+import SnippetViewEditDialog from '@/components/snippets/SnippetViewEditDialog';
 
 export default function DashboardPage() {
   const { user } = useUser();
   const [snippets, setSnippets] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [viewEditDialogOpen, setViewEditDialogOpen] = useState(false);
+  const [currentSnippetId, setCurrentSnippetId] = useState(null);
 
   useEffect(() => {
     fetchSnippets();
@@ -33,6 +36,15 @@ export default function DashboardPage() {
     setIsFormOpen(false);
   };
 
+  const handleSnippetUpdated = (updatedSnippet) => {
+    setSnippets((prevSnippets) =>
+      prevSnippets.map((snippet) =>
+        snippet.id === updatedSnippet.id ? updatedSnippet : snippet
+      )
+    );
+    setViewEditDialogOpen(false);
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -43,13 +55,36 @@ export default function DashboardPage() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {snippets.map((snippet) => (
-          <SnippetCard key={snippet.id} snippet={snippet} />
+          <div key={snippet.id} className="relative">
+            <SnippetCard
+              snippet={snippet}
+              onEdit={() => {
+                setCurrentSnippetId(snippet.id);
+                setViewEditDialogOpen(true);
+              }}
+            />
+            <Button
+              onClick={() => {
+                setCurrentSnippetId(snippet.id);
+                setViewEditDialogOpen(true);
+              }}
+              className="absolute top-2 right-2"
+            >
+              <Edit className="w-4 h-4" />
+            </Button>
+          </div>
         ))}
       </div>
       <SnippetFormDialog
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSnippetCreated={handleSnippetCreated}
+      />
+      <SnippetViewEditDialog
+        isOpen={viewEditDialogOpen}
+        onClose={() => setViewEditDialogOpen(false)}
+        snippetId={currentSnippetId}
+        onSnippetUpdated={handleSnippetUpdated}
       />
     </div>
   );

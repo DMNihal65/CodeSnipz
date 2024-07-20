@@ -1,15 +1,12 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Code, FileHeartIcon, Heart, Sparkles, Star } from 'lucide-react';
+import { Code, Heart, Star } from 'lucide-react';
 import { useState } from 'react';
+import { Editor } from '@monaco-editor/react';
+import { FaRegHeart } from "react-icons/fa";
+import { FaHeart } from "react-icons/fa6";
 
-const StarFill = (props) => (
-  <svg {...props} fill="currentColor">
-    <Star />
-  </svg>
-);
-
-const SnippetCard = ({ snippet, onSnippetUpdated }) => {
+const SnippetCard = ({ snippet, onSnippetUpdated, onEdit }) => {
   const [isFavorite, setIsFavorite] = useState(snippet.isFavorite);
 
   const handleFavorite = async () => {
@@ -34,23 +31,36 @@ const SnippetCard = ({ snippet, onSnippetUpdated }) => {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>{snippet.title}</CardTitle>
-        <CardDescription>{snippet.language}</CardDescription>
+    <Card className="w-full shadow-lg border border-gray-200 rounded-lg overflow-hidden">
+      <CardHeader className="bg-gray-50 p-4">
+        <CardTitle className="text-xl font-semibold text-gray-800">{snippet.title}</CardTitle>
+        <CardDescription className="text-sm text-gray-600">{snippet.language}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <pre className="bg-gray-100 p-2 rounded overflow-x-auto">
-          <code>{snippet.code.slice(0, 100)}...</code>
-        </pre>
+      <CardContent className="p-4">
+        <Editor
+          height="200px"
+          language={snippet.language.toLowerCase()}
+          value={snippet.code}
+          options={{ readOnly: true, minimap: { enabled: false }, fontSize: 14 }}
+        />
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" size="sm">
-          <Code className="mr-2 h-4 w-4" /> View
-        </Button>
-        <Button variant="ghost" size="sm" onClick={handleFavorite}>
-          {isFavorite ? <Sparkles className="mr-2 h-4 w-4" /> : <Star className="mr-2 h-4 w-4" />} Favorite
-        </Button>
+      <CardFooter className="bg-gray-50 p-4 flex justify-between items-center">
+        <div className="flex space-x-2">
+          {(snippet.tags || []).map((tag, index) => (
+            <span key={index} className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+              <img src={`/icons/${tag.name.toLowerCase()}.svg`} alt={tag.name} className="h-4 w-4 mr-1" />
+              {tag.name}
+            </span>
+          ))}
+        </div>
+        <div className="flex space-x-2">
+          <Button variant="outline" size="sm" onClick={onEdit}>
+            <Code className="mr-2 h-4 w-4" /> View/Edit
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleFavorite}>
+            {isFavorite ? <FaHeart className="mr-2 h-4 w-4 text-red-500" /> : <FaRegHeart className="mr-2 h-4 w-4 text-slate-700" />} Favorite
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

@@ -9,12 +9,10 @@ import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 
 const SnippetCard = ({ snippet, onSnippetUpdated, onEdit, onDelete }) => {
-  // Initialize state with default values
   const [isFavorite, setIsFavorite] = useState(snippet?.isFavorite || false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Effect to update state if snippet prop changes
   useEffect(() => {
     setIsFavorite(snippet?.isFavorite || false);
   }, [snippet]);
@@ -24,12 +22,12 @@ const SnippetCard = ({ snippet, onSnippetUpdated, onEdit, onDelete }) => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/snippets', {
+      const response = await fetch(`/api/snippets/${snippet.id}/favorite`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id: snippet.id, isFavorite: !isFavorite }),
+        body: JSON.stringify({ isFavorite: !isFavorite }),
       });
 
       if (response.ok) {
@@ -86,8 +84,8 @@ const SnippetCard = ({ snippet, onSnippetUpdated, onEdit, onDelete }) => {
       <CardFooter className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 flex flex-wrap justify-between items-center gap-2">
         <div className="flex flex-wrap gap-2">
           {(snippet.tags || []).map((tag, index) => (
-            <Badge key={index} variant="outline" className="bg-white">
-              {tag.name}
+            <Badge key={index} variant="outline" className="bg-yellow-200">
+              {tag}
             </Badge>
           ))}
         </div>

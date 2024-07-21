@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
 import SnippetCard from '@/components/snippets/SnippetCard';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const TagPage = () => {
@@ -12,10 +12,11 @@ const TagPage = () => {
   const [loading, setLoading] = useState(true);
   const { tag } = useParams();
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (tag) {
-      fetchSnippetsByTag(tag);
+      fetchSnippetsByTag(decodeURIComponent(tag));
     }
   }, [tag]);
 
@@ -54,13 +55,14 @@ const TagPage = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">
-          Snippets for Tag: <span className="text-blue-600">{tag}</span>
+          Snippets for Tag: <span className="text-blue-600">{decodeURIComponent(tag)}</span>
         </h1>
         <Button
-          onClick={() => window.history.back()}
+          onClick={() => router.push('/dashboard/tags')}
           variant="outline"
           className="text-gray-600 hover:text-gray-800"
         >
+          <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Tags
         </Button>
       </div>

@@ -26,10 +26,24 @@ export async function GET(req, { params }) {
     const tagId = tagData[0].id;
 
     const relatedSnippets = await db
-      .select(snippets)
+      .select({
+        id: snippets.id,
+        title: snippets.title,
+        description: snippets.description,
+        code: snippets.code,
+        language: snippets.language,
+        isFavorite: snippets.isFavorite,
+        createdAt: snippets.createdAt,
+      })
       .from(snippetTags)
       .innerJoin(snippets, eq(snippetTags.snippetId, snippets.id))
-      .where(and(eq(snippetTags.tagId, tagId), eq(snippets.userId, userId)));
+      .where(
+        and(
+          eq(snippetTags.tagId, tagId),
+          eq(snippets.userId, userId),
+          eq(snippets.isDeleted, false)
+        )
+      );
 
     return NextResponse.json(relatedSnippets);
   } catch (error) {

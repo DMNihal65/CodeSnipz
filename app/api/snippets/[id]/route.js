@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { snippets, snippetTags, tags } from '@/lib/db/schema';
 import { getAuth } from '@clerk/nextjs/server';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 export async function GET(req, { params }) {
   try {
@@ -11,20 +11,30 @@ export async function GET(req, { params }) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const snippetId = params.id;
+    const snippetId = parseInt(params.id, 10);
 
-    const snippet = await db
-      .select()
+    const snippetResult = await db
+      .select({
+        id: snippets.id,
+        title: snippets.title,
+        description: snippets.description,
+        code: snippets.code,
+        language: snippets.language,
+        isFavorite: snippets.isFavorite,
+        createdAt: snippets.createdAt,
+      })
       .from(snippets)
-      .where(eq(snippets.id, snippetId), eq(snippets.userId, userId))
-      .single();
+      .where(and(eq(snippets.id, snippetId), eq(snippets.userId, userId)))
+      .limit(1);
 
-    if (!snippet) {
+    if (snippetResult.length === 0) {
       return new NextResponse("Snippet not found", { status: 404 });
     }
 
+    const snippet = snippetResult[0];
+
     const tagsResult = await db
-      .select(tags.name)
+      .select({ name: tags.name })
       .from(snippetTags)
       .innerJoin(tags, eq(snippetTags.tagId, tags.id))
       .where(eq(snippetTags.snippetId, snippetId));
@@ -34,7 +44,7 @@ export async function GET(req, { params }) {
     return NextResponse.json(snippet);
   } catch (error) {
     console.error('Error fetching snippet:', error);
-    return new NextResponse(JSON.stringify({ error: error.message }), { 
+    return new NextResponse(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -48,43 +58,42 @@ export async function PUT(req, { params }) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const snippetId = params.id;
-    const { title, description, code, language, tags } = await req.json();
+    const snippetId = parseInt(params.id, 10);
+    const { title, description, code, language, tags: tagNames } = await req.json();
 
-    const updatedSnippet = await db
-      .update(snippets)
+    // Update the snippet
+    const [updated] = await db.update(snippets)
       .set({ title, description, code, language })
-      .where(eq(snippets.id, snippetId), eq(snippets.userId, userId))
+      .where(and(eq(snippets.id, snippetId), eq(snippets.userId, userId)))
       .returning();
 
-    // Update tags
+    if (!updated) {
+      return new NextResponse("Snippet not found or unauthorized", { status: 404 });
+    }
+
+    // Remove existing tags
     await db.delete(snippetTags).where(eq(snippetTags.snippetId, snippetId));
 
-    for (const tagName of tags) {
-      const tag = await db
-        .select()
-        .from(tags)
-        .where(eq(tags.name, tagName))
-        .single();
+    // Add new tags
+    for (const tagName of tagNames) {
+      let [tag] = await db.select().from(tags).where(and(eq(tags.userId, userId), eq(tags.name, tagName)));
 
-      let tagId;
-      if (tag) {
-        tagId = tag.id;
-      } else {
-        const newTag = await db
-          .insert(tags)
-          .values({ userId, name: tagName })
-          .returning();
-        tagId = newTag.id;
+      if (!tag) {
+        [tag] = await db.insert(tags).values({ userId, name: tagName }).returning();
       }
 
-      await db.insert(snippetTags).values({ snippetId, tagId });
+      await db.insert(snippetTags).values({ snippetId, tagId: tag.id });
     }
+
+    const updatedSnippet = {
+      ...updated,
+      tags: tagNames
+    };
 
     return NextResponse.json(updatedSnippet);
   } catch (error) {
     console.error('Error updating snippet:', error);
-    return new NextResponse(JSON.stringify({ error: error.message }), { 
+    return new NextResponse(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

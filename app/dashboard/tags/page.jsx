@@ -1,4 +1,5 @@
-"use client"
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
@@ -142,7 +143,7 @@ const TagsPage = () => {
   };
 
   const handleTagClick = (tag) => {
-    router.push(`/dashboard/tags/${tag.name}`);
+    router.push(`/dashboard/tags/${encodeURIComponent(tag.name)}`);
   };
 
   return (
@@ -181,7 +182,7 @@ const TagsPage = () => {
             />
           ))
         ) : (
-          <p className="text-gray-500 col-span-full text-center py-4">No tags found. Add your first tag above!</p>
+          <p className="text-center text-gray-500 col-span-full py-4">No tags found. Add your first tag above!</p>
         )}
       </div>
     </div>

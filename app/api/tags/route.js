@@ -1,8 +1,30 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { tags, snippetTags, snippets } from '@/lib/db/schema';
+import { tags } from '@/lib/db/schema';
 import { getAuth } from '@clerk/nextjs/server';
 import { eq } from 'drizzle-orm';
+
+export async function GET(req) {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const allTags = await db
+      .select()
+      .from(tags)
+      .where(eq(tags.userId, userId));
+
+    return NextResponse.json(allTags);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    return new NextResponse(JSON.stringify({ error: error.message }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
 
 export async function POST(req) {
   try {
@@ -12,67 +34,41 @@ export async function POST(req) {
     }
 
     const { name } = await req.json();
-    
-    console.log('Attempting to insert tag:', { userId, name });
 
-    const newTag = await db.insert(tags).values({
-      userId,
-      name,
-    }).returning();
+    const newTag = await db
+      .insert(tags)
+      .values({ userId, name })
+      .returning();
 
-    console.log('New tag created:', newTag[0]);
-
-    return NextResponse.json(newTag[0]);
+    return NextResponse.json(newTag);
   } catch (error) {
-    console.error('Error creating tag:', error);
+    console.error('Error adding tag:', error);
     return new NextResponse(JSON.stringify({ error: error.message }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
-};
-
-export async function GET(req) {
-    try {
-      const { userId } = getAuth(req);
-      if (!userId) {
-        return new NextResponse("Unauthorized", { status: 401 });
-      }
-  
-      const userTags = await db.select().from(tags).where(eq(tags.userId, userId));
-  
-      return NextResponse.json(userTags);
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-      return new NextResponse(JSON.stringify({ error: error.message }), { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
 }
 
-export async function PATCH(req) {
+export async function DELETE(req) {
   try {
     const { userId } = getAuth(req);
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { snippetId, tagIds } = await req.json();
-    
-    console.log('Attempting to update snippet tags:', { snippetId, tagIds });
+    const { id } = await req.json();
 
-    await db.delete(snippetTags).where(eq(snippetTags.snippetId, snippetId));
+    await db
+      .delete(tags)
+      .where(eq(tags.id, id), eq(tags.userId, userId));
 
-    const newSnippetTags = tagIds.map(tagId => ({ snippetId, tagId }));
-    await db.insert(snippetTags).values(newSnippetTags);
-
-    return new NextResponse("Tags updated successfully", { status: 200 });
+    return new NextResponse("Tag deleted", { status: 200 });
   } catch (error) {
-    console.error('Error updating snippet tags:', error);
+    console.error('Error deleting tag:', error);
     return new NextResponse(JSON.stringify({ error: error.message }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
-};
+}

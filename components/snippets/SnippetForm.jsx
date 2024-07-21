@@ -1,37 +1,22 @@
-'use client';
-
 import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
 import { Editor } from '@monaco-editor/react';
+import { useToast } from '@/components/ui/use-toast';
+import { Autocomplete, TextField } from '@mui/material';
+import { Tag } from 'lucide-react';
 
-export default function SnippetForm({ onSnippetCreated, existingTags = [] }) {
+export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated, existingTags = [] }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
-  const [tags, setTags] = useState(existingTags);
-
-  useEffect(() => {
-    fetchTags();
-  }, []);
-
-  const fetchTags = async () => {
-    try {
-      const response = await fetch('/api/tags');
-      if (response.ok) {
-        const data = await response.json();
-        setTags(data);
-      }
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-    }
-  };
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,85 +39,112 @@ export default function SnippetForm({ onSnippetCreated, existingTags = [] }) {
         setLanguage('');
         setSelectedTags([]);
         onSnippetCreated();
+        onClose();
+        toast({
+          title: "Success",
+          description: "Snippet created successfully.",
+        });
       } else {
-        console.error('Failed to create snippet');
+        throw new Error('Failed to create snippet');
       }
     } catch (error) {
       console.error('Error creating snippet:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create snippet.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleTagChange = (e) => {
-    const value = Array.from(e.target.selectedOptions, option => option.value);
-    setSelectedTags(value);
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col md:flex-row p-6 space-y-6 md:space-y-0 md:space-x-6 bg-white rounded-lg shadow-lg">
-      <div className="flex flex-col w-full md:w-1/3 space-y-4">
-        <div>
-          <Label htmlFor="title">Title</Label>
-          <Input
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            className="border border-gray-300 rounded-md p-2"
-          />
-        </div>
-        <div>
-          <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            className="border border-gray-300 rounded-md p-2"
-          />
-        </div>
-        <div>
-          <Label htmlFor="language">Language</Label>
-          <Input
-            id="language"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="border border-gray-300 rounded-md p-2"
-          />
-        </div>
-        <div>
-          <Label htmlFor="tags">Tags</Label>
-          <Select
-            id="tags"
-            multiple
-            value={selectedTags}
-            onChange={handleTagChange}
-            className="border border-gray-300 rounded-md p-2"
-          >
-            {tags.map((tag) => (
-              <option key={tag.id} value={tag.id}>
-                {tag.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <Button type="submit" disabled={isLoading} className="bg-blue-500 text-white rounded-md p-2">
-          {isLoading ? 'Creating...' : 'Create Snippet'}
-        </Button>
-      </div>
-      <div className="flex-grow">
-        <Label htmlFor="code">Code</Label>
-        <div className="h-96 border border-gray-300 rounded-md p-2"> {/* Fixed height for the editor container */}
-          <Editor
-            height="100%"
-            language={language.toLowerCase()}
-            value={code}
-            onChange={value => setCode(value)}
-            options={{ minimap: { enabled: false }, fontSize: 14 }}
-          />
-        </div>
-      </div>
-    </form>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Create New Snippet</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label htmlFor="language">Language</Label>
+                <Input
+                  id="language"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="tags">Tags</Label>
+                <Autocomplete
+                  multiple
+                  id="tags"
+                  options={existingTags}
+                  getOptionLabel={(option) => option.name}
+                  value={selectedTags}
+                  onChange={(event, newValue) => {
+                    setSelectedTags(newValue);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      variant="outlined"
+                      placeholder="Select tags"
+                    />
+                  )}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Tag
+                        label={option.name}
+                        {...getTagProps({ index })}
+                        key={option.id}
+                      />
+                    ))
+                  }
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="code">Code</Label>
+              <Editor
+                height="400px"
+                language={language.toLowerCase()}
+                value={code}
+                onChange={(value) => setCode(value)}
+                options={{ minimap: { enabled: false }, fontSize: 14 }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Creating...' : 'Create Snippet'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

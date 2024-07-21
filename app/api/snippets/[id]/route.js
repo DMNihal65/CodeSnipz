@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { snippets } from '@/lib/db/schema';
+import { snippets, snippetTags, tags } from '@/lib/db/schema';
 import { getAuth } from '@clerk/nextjs/server';
 import { eq } from 'drizzle-orm';
 
@@ -13,20 +13,23 @@ export async function GET(req, { params }) {
 
     const snippetId = params.id;
 
-    if (!snippetId) {
-      return new NextResponse("Snippet ID is required", { status: 400 });
-    }
-
-    // Fetching the snippet using limit and offset if `.first()` is not available
-    const [snippet] = await db
+    const snippet = await db
       .select()
       .from(snippets)
       .where(eq(snippets.id, snippetId), eq(snippets.userId, userId))
-      .limit(1); // Limit to 1 item
+      .single();
 
     if (!snippet) {
       return new NextResponse("Snippet not found", { status: 404 });
     }
+
+    const tagsResult = await db
+      .select(tags.name)
+      .from(snippetTags)
+      .innerJoin(tags, eq(snippetTags.tagId, tags.id))
+      .where(eq(snippetTags.snippetId, snippetId));
+
+    snippet.tags = tagsResult.map(tag => tag.name);
 
     return NextResponse.json(snippet);
   } catch (error) {
@@ -48,25 +51,34 @@ export async function PUT(req, { params }) {
     const snippetId = params.id;
     const { title, description, code, language, tags } = await req.json();
 
-    if (!snippetId) {
-      return new NextResponse("Snippet ID is required", { status: 400 });
-    }
-
-    const [updatedSnippet] = await db
+    const updatedSnippet = await db
       .update(snippets)
-      .set({
-        title,
-        description,
-        code,
-        language,
-        tags,
-        updatedAt: new Date(),
-      })
+      .set({ title, description, code, language })
       .where(eq(snippets.id, snippetId), eq(snippets.userId, userId))
       .returning();
 
-    if (!updatedSnippet) {
-      return new NextResponse("Snippet not found", { status: 404 });
+    // Update tags
+    await db.delete(snippetTags).where(eq(snippetTags.snippetId, snippetId));
+
+    for (const tagName of tags) {
+      const tag = await db
+        .select()
+        .from(tags)
+        .where(eq(tags.name, tagName))
+        .single();
+
+      let tagId;
+      if (tag) {
+        tagId = tag.id;
+      } else {
+        const newTag = await db
+          .insert(tags)
+          .values({ userId, name: tagName })
+          .returning();
+        tagId = newTag.id;
+      }
+
+      await db.insert(snippetTags).values({ snippetId, tagId });
     }
 
     return NextResponse.json(updatedSnippet);

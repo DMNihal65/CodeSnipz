@@ -1,37 +1,23 @@
-// api/gemini-ai-comments/route.js
+// app/api/gemini-ai-comments/route.js
+
+import { generateCodeComments } from '@/utils/GeminiAiModel';
 import { NextResponse } from 'next/server';
+// import { generateCodeComments } from '@/utils/GeminiAiModel'; // Adjust the import path if necessary
 
-const GEMINI_API_URL = 'https://gemini-ai-api-url.com/comment-code';
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-export async function POST(req) {
-  try {
-    const { code, language } = await req.json();
-
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GEMINI_API_KEY}`
-      },
-      body: JSON.stringify({
-        prompt: `Add comments to the following ${language} code: \n\n${code}`
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch AI comments');
+export async function POST(request) {
+    console.log('Received request:', request);
+    try {
+      const { code, language } = await request.json();
+      console.log('Request body:', { code, language });
+  
+      if (!code || !language) {
+        return NextResponse.json({ error: 'Code and language are required' }, { status: 400 });
+      }
+  
+      const commentedCode = await generateCodeComments(code, language);
+      return NextResponse.json({ commentedCode });
+    } catch (error) {
+      console.error('Error generating code comments:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-
-    const data = await response.json();
-    const commentedCode = data.commentedCode;
-
-    return NextResponse.json({ commentedCode });
-  } catch (error) {
-    console.error('Error getting AI comments:', error);
-    return new NextResponse(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
   }
-}

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import Link from 'next/link'
 import './globals.css'
 import { UserButton } from "@clerk/nextjs";
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,6 +29,7 @@ export default function RootLayout({ children }) {
           <main className=" mx-auto">
             {children}
           </main>
+          <Toaster />
         </body>
       </html>
     </ClerkProvider>

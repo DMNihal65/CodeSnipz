@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Editor } from '@monaco-editor/react';
 import { useToast } from '@/components/ui/use-toast';
 import { Autocomplete, TextField, Chip } from '@mui/material';
+import axios from 'axios';
+import { chatSession } from '@/utils/GeminiAiModel';
 
 export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated }) {
   const [title, setTitle] = useState('');
@@ -79,36 +81,61 @@ export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated })
   };
 
   const handleAIComment = async () => {
+    if (!code) {
+      toast({
+        title: "Error",
+        description: "Code is empty.",
+        variant: "destructive",
+      });
+      return;
+    }
+  
     setIsAIProcessing(true);
     try {
-      const aiResponse = await fetch('/api/gemini-ai-comments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code, language }),
-      });
-      if (aiResponse.ok) {
-        const { commentedCode } = await aiResponse.json();
-        setCode(commentedCode);
+      console.log('Sending code to AI for commenting:', code);
+  
+      // Modify the prompt to request a simpler response format
+      const prompt = `Here is a code snippet in ${language}:\n\n${code}\n\nPlease add comments to this code to explain its functionality. Return only the commented code, without any JSON formatting or additional text.`;
+      
+      // Send the prompt to the AI model
+      const result = await chatSession.sendMessage(prompt);
+  
+      // Extract and log the raw response text
+      const resultText = result.response.text();
+      console.log('Raw result text:', resultText);
+  
+      // Clean up the response text
+      const cleanedCode = resultText
+        .replace(/^```[\s\S]*?\n/, '') // Remove opening code block markers
+        .replace(/```$/, '')           // Remove closing code block markers
+        .trim();                       // Remove any leading/trailing whitespace
+  
+      console.log('Cleaned commented code:', cleanedCode);
+  
+      if (cleanedCode) {
+        setCode(cleanedCode);
         toast({
-          title: "AI Comment",
-          description: "Comments added to the code successfully.",
+          title: "Success",
+          description: "Code commented successfully.",
         });
       } else {
-        throw new Error('Failed to get AI comments');
+        throw new Error('No commented code found in the AI response.');
       }
     } catch (error) {
       console.error('Error getting AI comments:', error);
       toast({
         title: "Error",
-        description: "Failed to add comments to code.",
+        description: "Failed to get AI comments.",
         variant: "destructive",
       });
     } finally {
       setIsAIProcessing(false);
     }
   };
+  
+  
+  
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

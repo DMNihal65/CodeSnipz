@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,14 +8,34 @@ import { Editor } from '@monaco-editor/react';
 import { useToast } from '@/components/ui/use-toast';
 import { Autocomplete, TextField, Chip } from '@mui/material';
 
-export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated, existingTags = [] }) {
+export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
+  const [existingTags, setExistingTags] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const response = await fetch('/api/tags');
+        if (response.ok) {
+          const tags = await response.json();
+          setExistingTags(tags);
+        } else {
+          console.error('Failed to fetch tags');
+        }
+      } catch (error) {
+        console.error('Error fetching tags:', error);
+      }
+    };
+
+    fetchTags();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +46,7 @@ export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated, e
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ title, description, code, language, tags: selectedTags.map(tag => tag.name || tag) }),
+        body: JSON.stringify({ title, description, code, language, tags: selectedTags.map(tag => tag.name) }),
       });
 
       if (response.ok) {
@@ -55,6 +75,38 @@ export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated, e
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAIComment = async () => {
+    setIsAIProcessing(true);
+    try {
+      const aiResponse = await fetch('/api/gemini-ai-comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code, language }),
+      });
+      if (aiResponse.ok) {
+        const { commentedCode } = await aiResponse.json();
+        setCode(commentedCode);
+        toast({
+          title: "AI Comment",
+          description: "Comments added to the code successfully.",
+        });
+      } else {
+        throw new Error('Failed to get AI comments');
+      }
+    } catch (error) {
+      console.error('Error getting AI comments:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comments to code.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAIProcessing(false);
     }
   };
 
@@ -100,9 +152,10 @@ export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated, e
                 <Label htmlFor="tags" className="text-sm font-medium text-gray-700">Tags</Label>
                 <Autocomplete
                   multiple
-                  id="tags"
-                  options={existingTags.map(tag => (typeof tag === 'string' ? { name: tag } : tag))}
                   freeSolo
+                  id="tags"
+                  options={existingTags.map(tag => tag.name)}
+                  getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
                   value={selectedTags}
                   onChange={(event, newValue) => {
                     setSelectedTags(newValue.map(tag => (typeof tag === 'string' ? { name: tag } : tag)));
@@ -138,6 +191,16 @@ export default function SnippetFormDialog({ isOpen, onClose, onSnippetCreated, e
                 options={{ minimap: { enabled: false }, fontSize: 14 }}
                 className="mt-1 border rounded-md overflow-hidden"
               />
+              <div className="flex justify-end mt-2">
+                <Button
+                  type="button"
+                  onClick={handleAIComment}
+                  disabled={isAIProcessing}
+                  className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                  {isAIProcessing ? 'Processing...' : 'Comment with AI'}
+                </Button>
+              </div>
             </div>
           </div>
           <div className="flex justify-end space-x-2">
